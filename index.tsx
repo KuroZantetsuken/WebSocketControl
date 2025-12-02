@@ -21,10 +21,10 @@ function connect() {
     if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
 
     const port = settings.store.port;
-    // We append ?client=Vencord so the server knows who is connecting
     socket = new WebSocket(`ws://127.0.0.1:${port}/?client=Vencord`);
 
     socket.onopen = () => {
+        console.log("MacroDeckServer connected");
         sendVoiceState();
     };
 
@@ -89,13 +89,13 @@ function sendVoiceState() {
 
 export default definePlugin({
     name: "MacroDeckServer",
-    description: "Connects to Macro Deck via WebSocket to control mute/deaf status. Requires a custom Macro Deck plugin acting as a WebSocket Server.",
+    description: "Connects to Macro Deck via WebSocket to control mute/deaf status.",
     authors: [{ name: "Roo", id: 0n }],
     settings,
 
     start() {
         try {
-            MediaEngineActions = findByProps("toggleSelfMute") ?? findByProps("toggleSelfDeaf") ?? findByCode("AUDIO_TOGGLE_SELF_MUTE");
+            MediaEngineActions = findByProps("toggleSelfMute") ?? findByCode("AUDIO_TOGGLE_SELF_MUTE");
         } catch (e) {
             console.error("MacroDeckServer: Error finding MediaEngineActions", e);
         }
@@ -104,7 +104,6 @@ export default definePlugin({
 
     stop() {
         if (socket) {
-            // Prevent reconnection attempt
             socket.onclose = null;
             socket.close();
             socket = null;
