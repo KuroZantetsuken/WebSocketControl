@@ -20,37 +20,94 @@ const settings = definePluginSettings({
     }
 });
 
-let socket: WebSocket | null = null;
+const sockets: (WebSocket | null)[] = [];
+const socketStates: { retryCount: number, nextRetryTime: number }[] = [];
 let reconnectTimeout: any = null;
+let lastBasePort = -1;
 
 function connect() {
-    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
+    const basePort = settings.store.port;
+    const numPorts = settings.store.numberOfPorts;
 
-    const port = settings.store.port;
-    socket = new WebSocket(`ws://127.0.0.1:${port}/?client=Vencord`);
+    if (lastBasePort !== -1 && lastBasePort !== basePort) {
+        // Port changed, close all and reset
+        for (const s of sockets) s?.close();
+        sockets.length = 0;
+        socketStates.length = 0;
+    }
+    lastBasePort = basePort;
 
-    socket.onopen = () => {
-        console.log("WebSocketControl connected");
-        sendVoiceState();
-    };
+    // Ensure arrays are correct size
+    while (sockets.length < numPorts) {
+        sockets.push(null);
+        socketStates.push({ retryCount: 0, nextRetryTime: 0 });
+    }
+    while (sockets.length > numPorts) {
+        const s = sockets.pop();
+        if (s) s.close();
+        socketStates.pop();
+    }
 
-    socket.onmessage = (event) => {
-        try {
-            const data = JSON.parse(event.data);
-            handleMessage(data);
-        } catch (e) {
-            console.error("WebSocketControl parse error", e);
+    const now = Date.now();
+
+    for (let i = 0; i < numPorts; i++) {
+        const socket = sockets[i];
+        const state = socketStates[i];
+
+        if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+            // Reset retry count on successful connection
+            if (socket.readyState === WebSocket.OPEN) {
+                state.retryCount = 0;
+                state.nextRetryTime = 0;
+            }
+            continue;
         }
-    };
 
-    socket.onclose = () => {
-        socket = null;
-        reconnectTimeout = setTimeout(connect, 5000);
-    };
+        // Check if we should retry
+        if (state.retryCount >= 10) continue;
+        if (now < state.nextRetryTime) continue;
 
-    socket.onerror = (e) => {
-        // Connection errors are handled by onclose usually
-    };
+        const port = basePort + i;
+        const newSocket = new WebSocket(`ws://127.0.0.1:${port}/?client=Vencord`);
+        sockets[i] = newSocket;
+
+        // Calculate next retry delay (exponential backoff)
+        state.retryCount++;
+        // 1s, 2s, 4s, 8s...
+        const delay = 1000 * Math.pow(2, state.retryCount - 1);
+        state.nextRetryTime = now + delay;
+
+        newSocket.onopen = () => {
+            console.log(`WebSocketControl: WebSocket connected on port ${port}`);
+            state.retryCount = 0;
+            state.nextRetryTime = 0;
+            sendVoiceState();
+        };
+
+        newSocket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                console.log(`WebSocketControl: Received command on port ${port}`, data);
+                handleMessage(data);
+            } catch (e) {
+                console.error("WebSocketControl parse error", e);
+            }
+        };
+
+        newSocket.onclose = () => {
+            if (sockets[i] === newSocket) {
+                sockets[i] = null;
+            }
+        };
+
+        newSocket.onerror = (e) => {
+            // Connection errors are handled by onclose usually
+        };
+    }
+    
+    // Schedule next reconnection check
+    if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    reconnectTimeout = setTimeout(connect, 1000);
 }
 
 function handleMessage(data: any) {
@@ -79,8 +136,6 @@ function handleMessage(data: any) {
 }
 
 function sendVoiceState() {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-
     // Use MediaEngineStore for global mute/deaf state (works outside calls)
     const selfMute = MediaEngineStore ? MediaEngineStore.isSelfMute() : VoiceStateStore.isSelfMute();
     const selfDeaf = MediaEngineStore ? MediaEngineStore.isSelfDeaf() : VoiceStateStore.isSelfDeaf();
@@ -99,7 +154,12 @@ function sendVoiceState() {
         }
     };
     console.log("WebSocketControl: Sending voice state", payload);
-    socket.send(JSON.stringify(payload));
+
+    for (const socket of sockets) {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify(payload));
+        }
+    }
 }
 
 export default definePlugin({
@@ -119,11 +179,16 @@ export default definePlugin({
     },
 
     stop() {
-        if (socket) {
-            socket.onclose = null;
-            socket.close();
-            socket = null;
+        for (let i = 0; i < sockets.length; i++) {
+            const socket = sockets[i];
+            if (socket) {
+                socket.onclose = null;
+                socket.close();
+            }
         }
+        sockets.length = 0;
+        socketStates.length = 0;
+        lastBasePort = -1;
         if (reconnectTimeout) clearTimeout(reconnectTimeout);
     },
 
