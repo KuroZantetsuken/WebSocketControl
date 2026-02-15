@@ -5,6 +5,7 @@ import { findByProps, findByCode } from "@webpack";
 import { UserStore, VoiceStateStore } from "@webpack/common";
 
 let MediaEngineActions: any;
+let MediaEngineStore: any;
 
 const settings = definePluginSettings({
     port: {
@@ -75,16 +76,18 @@ function handleMessage(data: any) {
 function sendVoiceState() {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
+    // Use MediaEngineStore for global mute/deaf state (works outside calls)
+    const selfMute = MediaEngineStore ? MediaEngineStore.isSelfMute() : VoiceStateStore.isSelfMute();
+    const selfDeaf = MediaEngineStore ? MediaEngineStore.isSelfDeaf() : VoiceStateStore.isSelfDeaf();
+    
     const user = UserStore.getCurrentUser();
-    if (!user) return;
-
-    const voiceState = VoiceStateStore.getVoiceStateForUser(user.id);
+    const voiceState = user ? VoiceStateStore.getVoiceStateForUser(user.id) : null;
 
     const payload = {
         event: "VOICE_STATE_UPDATE",
         data: {
-            self_mute: voiceState?.selfMute || false,
-            self_deaf: voiceState?.selfDeaf || false,
+            self_mute: selfMute,
+            self_deaf: selfDeaf,
             mute: voiceState?.mute || false,
             deaf: voiceState?.deaf || false,
             channel_id: voiceState?.channelId || null,
@@ -103,8 +106,9 @@ export default definePlugin({
     start() {
         try {
             MediaEngineActions = findByProps("toggleSelfMute") ?? findByCode("AUDIO_TOGGLE_SELF_MUTE");
+            MediaEngineStore = findByProps("isSelfMute");
         } catch (e) {
-            console.error("WebSocketControl: Error finding MediaEngineActions", e);
+            console.error("WebSocketControl: Error finding MediaEngine stores/actions", e);
         }
         connect();
     },
