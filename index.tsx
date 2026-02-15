@@ -11,7 +11,12 @@ const settings = definePluginSettings({
     port: {
         type: OptionType.NUMBER,
         default: 8124,
-        description: "WebSocket Port (First WebSocketControl instance must listen on this port)"
+        description: "WebSocket Base Port (First WebSocketControl instance must listen on this port)"
+    },
+    numberOfPorts: {
+        type: OptionType.NUMBER,
+        default: 1,
+        description: "Number of WebSocket ports to connect to (incrementing from Base Port)",
     }
 });
 
