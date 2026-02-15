@@ -1,13 +1,15 @@
-# Vencord Plugin for Macro Deck
+# Vencord Plugin to allow Voice Chat controls via WebSocket
 
-This plugin connects Vencord (or Vesktop) to Macro Deck via WebSocket.
+This plugin connects Vencord (or Vesktop) to external applications via WebSocket.
 
 ## Setup
 
-1.  **Macro Deck**: Install the "Vencord Plugin" (see instructions in its repository).
-2.  **Vencord**: Enable this `MacroDeckServer` plugin in settings.
-3.  **Port**: The default port is `8124`. If you change it in Macro Deck, change it here too.
+1.  **External Application**: Ensure your external application is set up to connect to the WebSocket server.
+2.  **Vencord**: Enable this `WebSocketControl` plugin in settings.
+3.  **Port**: The default port is `8124`. If you change it in your external application, change it here too.
 
 ## Repository
-The Macro Deck plugin source code is available here:
+AutoHotkey script available in the current repo.
+
+Macro Deck plugin is available here:
 [https://github.com/KuroZantetsuken/Macro-Deck-Vencord-Plugin](https://github.com/KuroZantetsuken/Macro-Deck-Vencord-Plugin)
