@@ -10,7 +10,7 @@ const settings = definePluginSettings({
     port: {
         type: OptionType.NUMBER,
         default: 8124,
-        description: "WebSocket Port (Macro Deck Plugin must listen on this port)"
+        description: "WebSocket Port (First WebSocketControl instance must listen on this port)"
     }
 });
 
@@ -24,7 +24,7 @@ function connect() {
     socket = new WebSocket(`ws://127.0.0.1:${port}/?client=Vencord`);
 
     socket.onopen = () => {
-        console.log("MacroDeckServer connected");
+        console.log("WebSocketControl connected");
         sendVoiceState();
     };
 
@@ -33,7 +33,7 @@ function connect() {
             const data = JSON.parse(event.data);
             handleMessage(data);
         } catch (e) {
-            console.error("MacroDeckServer parse error", e);
+            console.error("WebSocketControl parse error", e);
         }
     };
 
@@ -48,11 +48,16 @@ function connect() {
 }
 
 function handleMessage(data: any) {
-    if (!MediaEngineActions) return;
+    if (!MediaEngineActions) {
+        console.error("WebSocketControl: MediaEngineActions not found!");
+        return;
+    }
 
     if (data.command === "TOGGLE_MUTE") {
+        console.log("WebSocketControl: Toggling mute");
         MediaEngineActions.toggleSelfMute();
     } else if (data.command === "TOGGLE_DEAF") {
+        console.log("WebSocketControl: Toggling deaf");
         MediaEngineActions.toggleSelfDeaf();
     } else if (data.command === "SET_MUTE") {
         const user = UserStore.getCurrentUser();
@@ -75,7 +80,7 @@ function sendVoiceState() {
 
     const voiceState = VoiceStateStore.getVoiceStateForUser(user.id);
 
-    socket.send(JSON.stringify({
+    const payload = {
         event: "VOICE_STATE_UPDATE",
         data: {
             self_mute: voiceState?.selfMute || false,
@@ -84,20 +89,22 @@ function sendVoiceState() {
             deaf: voiceState?.deaf || false,
             channel_id: voiceState?.channelId || null,
         }
-    }));
+    };
+    console.log("WebSocketControl: Sending voice state", payload);
+    socket.send(JSON.stringify(payload));
 }
 
 export default definePlugin({
-    name: "MacroDeckServer",
-    description: "Connects to Macro Deck via WebSocket to control mute/deaf status.",
-    authors: [{ name: "Roo", id: 0n }],
+    name: "WebSocketControl",
+    description: "Connects via WebSocket to control mute/deaf status.",
+    authors: [{ name: "KuroZantetsuken", id: 0n }],
     settings,
 
     start() {
         try {
             MediaEngineActions = findByProps("toggleSelfMute") ?? findByCode("AUDIO_TOGGLE_SELF_MUTE");
         } catch (e) {
-            console.error("MacroDeckServer: Error finding MediaEngineActions", e);
+            console.error("WebSocketControl: Error finding MediaEngineActions", e);
         }
         connect();
     },
@@ -112,6 +119,9 @@ export default definePlugin({
     },
 
     flux: {
+        VOICE_STATE_UPDATE() {
+            sendVoiceState();
+        },
         VOICE_STATE_UPDATES() {
             sendVoiceState();
         },
