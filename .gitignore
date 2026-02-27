@@ -1,2 +1,13 @@
 .MacroDeckPlugin/
 VencordWebSocketControl.exe
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.log
+
+# Editor
+.vscode/
