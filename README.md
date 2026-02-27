@@ -9,7 +9,7 @@ This plugin connects Vencord (or Vesktop) to external applications via WebSocket
 3.  **Port**: The default port is `8124`. If you change it in your external application, change it here too.
 
 ## Repository
-AutoHotkey script available in the current repo.
+The AutoHotkey script and C# server source code are located in the `.Clients` directory.
 
 Macro Deck plugin is available here:
 [https://github.com/KuroZantetsuken/Macro-Deck-Vencord-Plugin](https://github.com/KuroZantetsuken/Macro-Deck-Vencord-Plugin)
