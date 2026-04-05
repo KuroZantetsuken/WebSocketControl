@@ -104,7 +104,7 @@ function connect() {
             // Connection errors are handled by onclose usually
         };
     }
-    
+
     // Schedule next reconnection check
     if (reconnectTimeout) clearTimeout(reconnectTimeout);
     reconnectTimeout = setTimeout(connect, 1000);
@@ -139,7 +139,7 @@ function sendVoiceState() {
     // Use MediaEngineStore for global mute/deaf state (works outside calls)
     const selfMute = MediaEngineStore ? MediaEngineStore.isSelfMute() : VoiceStateStore.isSelfMute();
     const selfDeaf = MediaEngineStore ? MediaEngineStore.isSelfDeaf() : VoiceStateStore.isSelfDeaf();
-    
+
     const user = UserStore.getCurrentUser();
     const voiceState = user ? VoiceStateStore.getVoiceStateForUser(user.id) : null;
 
@@ -153,7 +153,6 @@ function sendVoiceState() {
             channel_id: voiceState?.channelId || null,
         }
     };
-    console.log("WebSocketControl: Sending voice state", payload);
 
     for (const socket of sockets) {
         if (socket && socket.readyState === WebSocket.OPEN) {
